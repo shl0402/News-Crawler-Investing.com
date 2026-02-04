@@ -52,11 +52,11 @@ Control everything from the `config.yaml` file without touching the code.
 # --- DATE RANGE ---
 start_date: "2025-01-01"
 end_date: "2026-02-05"
+limit_items: 1000       # How many articles to fetch per stock
+headless: false       # true = Invisible (Faster), false = Visible (Easier to debug)
 
 # --- SCRAPING LIMITS ---
-limit_items: 20       # How many articles to fetch per stock
 max_concurrent: 2     # How many browsers to open at once (Keep low: 2-3 is safe)
-headless: false       # true = Invisible (Faster), false = Visible (Easier to debug)
 
 # --- STOCK LIST ---
 categories:
