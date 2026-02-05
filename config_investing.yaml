@@ -13,7 +13,7 @@ max_concurrent: 5
 # The script will loop through these keys and create separate Excel files for each.
 categories:
   Auto:
-    - "1810"  # Xiaomi
+    - "xiaomi" #"1810"  # Xiaomi
     - "1211"  # BYD
     - "2333"  # Great Wall
     - "9868"  # Xpeng
@@ -73,7 +73,7 @@ categories:
     - "3968"  # CM Bank
     - "1398"  # ICBC
     - "hsbc-holdings-plc" #"5"     # HSBC
-    - "11"    # Hang Seng
+    - "hang-seng-bank-ltd"  #'11'  # Hang Seng
     - "388"   # HKEX
     - "939"   # CCB
     - "2888"  # Standard Chartered
@@ -145,7 +145,7 @@ categories:
     - "293"   # Cathay Pacific
 
   Gambling:
-    - "27"    # Galaxy Ent
+    - "galaxy-ent" #"27"    # Galaxy Ent
     - "1928"  # Sands China
     - "2282"  # MGM China
     - "880"   # SJM
