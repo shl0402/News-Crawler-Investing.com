@@ -13,8 +13,12 @@ import threading
 from playwright.sync_api import sync_playwright
 
 # --- GLOBAL SETTINGS ---
+TMP_DIR = "aa_tmp"          # <--- Folder for temp JSONL files
+OUTPUT_DIR = "aa_output"    # <--- Folder for Excel and Summary files
+
 LOG_FILE = "aastocks_progress_log.txt"
-SUMMARY_FILE = "aastocks_summary_report.csv"
+# Summary file now lives in the output directory
+SUMMARY_FILE = os.path.join(OUTPUT_DIR, "aastocks_summary_report.csv")
 CONFIG_FILE = "config_aastocks.yaml"
 stop_requested = False
 
@@ -68,9 +72,12 @@ def update_summary(category, stock_code, status, details=""):
 def get_filenames(category, stock_code):
     s_cat = sanitize_filename(category)
     s_code = sanitize_filename(stock_code)
-    file_links = f"temp_links_aa_{s_cat}_{s_code}.jsonl"
-    file_data = f"temp_data_aa_{s_cat}_{s_code}.jsonl"
-    file_excel = f"AA_{s_cat}_{s_code}.xlsx"
+    
+    # Updated paths to use directories
+    file_links = os.path.join(TMP_DIR, f"temp_links_aa_{s_cat}_{s_code}.jsonl")
+    file_data = os.path.join(TMP_DIR, f"temp_data_aa_{s_cat}_{s_code}.jsonl")
+    file_excel = os.path.join(OUTPUT_DIR, f"AA_{s_cat}_{s_code}.xlsx")
+    
     return file_links, file_data, file_excel
 
 def append_jsonl(filename, data_list):
@@ -151,7 +158,6 @@ def collect_links_phase(page, category, stock_code, is_hk, config, links_file):
                 page.goto(current_url, timeout=60000, wait_until="domcontentloaded")
             
             # --- SCROLL LOGIC FOR ALL STOCKS ---
-            # Now applied to BOTH US and HK stocks as requested
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             time.sleep(1)
             
@@ -162,7 +168,6 @@ def collect_links_phase(page, category, stock_code, is_hk, config, links_file):
             except: pass
             
             if retry_scroll_count > 2:
-                # Wiggle scroll to trigger lazy loaders
                 page.evaluate("window.scrollBy(0, -500)")
                 time.sleep(0.5)
                 page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
@@ -175,8 +180,6 @@ def collect_links_phase(page, category, stock_code, is_hk, config, links_file):
 
             if not news_items:
                 if retry_scroll_count > MAX_RETRIES:
-                    # Only stop if it's US (Infinite Scroll) or HK (Empty Page)
-                    # For HK, if page is empty, we likely reached end of pagination
                     if is_hk and page_num > 1: break 
                     if not is_hk: break 
                 
@@ -209,7 +212,6 @@ def collect_links_phase(page, category, stock_code, is_hk, config, links_file):
                     
                     if full_link in collected_urls: continue
 
-                    # Date Extraction
                     date_text = ""
                     try:
                         parent_text = item.locator('..').inner_text() 
@@ -247,8 +249,8 @@ def collect_links_phase(page, category, stock_code, is_hk, config, links_file):
             else:
                 retry_scroll_count += 1
                 if retry_scroll_count > MAX_RETRIES:
-                    if not is_hk: break # US stop if scroll fails
-                    # HK might just need next page
+                    if not is_hk: break
+                    # HK might need next page
 
             if is_hk: page_num += 1
 
@@ -374,13 +376,17 @@ def main():
         print(f"❌ Error: Please create '{CONFIG_FILE}' first.")
         return
 
+    # Create Output Directories
+    os.makedirs(TMP_DIR, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
     config = load_config()
     max_workers = config.get('max_concurrent', 2)
     categories = config.get('categories', {})
 
     tasks = []
     for cat, stocks in categories.items():
-        if not stocks: continue # FIX: Skip empty categories to prevent TypeError
+        if not stocks: continue 
         for stock in stocks:
             tasks.append({'category': cat, 'stock_code': str(stock), 'config': config})
 

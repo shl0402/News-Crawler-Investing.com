@@ -13,8 +13,12 @@ import threading
 from playwright.sync_api import sync_playwright
 
 # --- GLOBAL SETTINGS ---
-LOG_FILE = "scraper_progress_log.txt"
-SUMMARY_FILE = "scraper_summary_report.csv"
+TMP_DIR = "inv_tmp"          # <--- Temp files folder
+OUTPUT_DIR = "inv_output"    # <--- Final results folder
+
+LOG_FILE = "investing_progress_log.txt"
+SUMMARY_FILE = os.path.join(OUTPUT_DIR, "investing_summary_report.csv")
+CONFIG_FILE = "config_investing.yaml"
 stop_requested = False
 
 # Thread locks
@@ -34,7 +38,7 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 def load_config():
-    with open('config.yaml', 'r', encoding='utf-8') as file:
+    with open(CONFIG_FILE, 'r', encoding='utf-8') as file:
         return yaml.safe_load(file)
 
 def log_message(message):
@@ -73,15 +77,23 @@ def append_summary_report(category, stock_code, status, details=""):
 def get_filenames(category, stock_code, stock_name=""):
     s_cat = sanitize_filename(category)
     s_code = sanitize_filename(stock_code)
-    jsonl = f"temp_{s_cat}_{s_code}.jsonl"
     
+    # 1. Temp JSONL in inv_tmp/
+    # Name: investing_temp_{cat}_{code}.jsonl
+    jsonl = os.path.join(TMP_DIR, f"investing_temp_{s_cat}_{s_code}.jsonl")
+    
+    # 2. Final Excel in inv_output/
+    # Name: investing_{cat}_{code}_{name}.xlsx
     if stock_name:
         s_name = sanitize_filename(stock_name)
-        excel = f"{s_cat}_{s_code}_{s_name}.xlsx"
+        excel_name = f"investing_{s_cat}_{s_code}_{s_name}.xlsx"
+        excel_path = os.path.join(OUTPUT_DIR, excel_name)
     else:
-        excel = f"{s_cat}_{s_code}_" 
+        # Used for checking if file exists (prefix match)
+        excel_name = f"investing_{s_cat}_{s_code}_" 
+        excel_path = os.path.join(OUTPUT_DIR, excel_name)
     
-    return jsonl, excel
+    return jsonl, excel_path, excel_name
 
 def load_existing_data(jsonl_file):
     data = []
@@ -102,7 +114,7 @@ def append_to_jsonl(jsonl_file, new_data_list):
     except Exception as e:
         log_message(f"❌ JSON Write Error {jsonl_file}: {e}")
 
-def create_final_excel(data, excel_filename):
+def create_final_excel(data, excel_filepath):
     if not data: return
     
     df = pd.DataFrame(data)
@@ -116,8 +128,8 @@ def create_final_excel(data, excel_filename):
         if c not in df.columns: df[c] = ""
     
     try:
-        df[cols].to_excel(excel_filename, index=False)
-        log_message(f"💾 EXCEL SAVED: {excel_filename}")
+        df[cols].to_excel(excel_filepath, index=False)
+        log_message(f"💾 EXCEL SAVED: {excel_filepath}")
         return True
     except Exception as e:
         log_message(f"❌ Excel Save Failed: {e}")
@@ -221,14 +233,22 @@ def process_stock_task(task_info):
     if stop_requested: return
 
     # 1. SMART RESUME
-    jsonl_filename, excel_prefix = get_filenames(category, stock_code)
+    # Note: excel_path_or_prefix returned here contains the directory path
+    jsonl_filename, excel_path, excel_prefix_name = get_filenames(category, stock_code)
     
-    # Check Final Excel
-    for f in os.listdir('.'):
-        if f.startswith(excel_prefix) and f.endswith(".xlsx") and stock_code in f:
-            log_message(f"⏭️ Skipping {stock_code} (Final Excel exists)")
-            append_summary_report(category, stock_code, "Skipped", "Excel Exists")
-            return
+    # Check Final Excel (Look inside OUTPUT_DIR)
+    # excel_prefix_name is just the filename prefix "investing_cat_code_"
+    found_excel = False
+    if os.path.exists(OUTPUT_DIR):
+        for f in os.listdir(OUTPUT_DIR):
+            if f.startswith(excel_prefix_name) and f.endswith(".xlsx"):
+                found_excel = True
+                break
+    
+    if found_excel:
+        log_message(f"⏭️ Skipping {stock_code} (Final Excel exists)")
+        append_summary_report(category, stock_code, "Skipped", "Excel Exists")
+        return
 
     # Load JSONL
     existing_data = load_existing_data(jsonl_filename)
@@ -241,8 +261,8 @@ def process_stock_task(task_info):
 
     if items_collected >= limit:
         log_message(f"✅ {stock_code}: Has {items_collected}/{limit}. Generating Excel...")
-        _, final_excel_name = get_filenames(category, stock_code, stock_name)
-        create_final_excel(existing_data, final_excel_name)
+        _, final_excel_path, _ = get_filenames(category, stock_code, stock_name)
+        create_final_excel(existing_data, final_excel_path)
         append_summary_report(category, stock_code, "Success", f"Finished ({items_collected})")
         return
 
@@ -348,7 +368,6 @@ def process_stock_task(task_info):
                     if batch_new_data:
                         append_to_jsonl(jsonl_filename, batch_new_data)
                         existing_data.extend(batch_new_data)
-                        # --- REPORT UPDATE (THE FIX) ---
                         append_summary_report(category, stock_code, "In Progress", f"Found {items_collected}")
                     
                     page_num += 1
@@ -361,8 +380,8 @@ def process_stock_task(task_info):
             if items_collected >= limit: completed_successfully = True
 
             if completed_successfully:
-                _, final_excel_name = get_filenames(category, stock_code, stock_name)
-                create_final_excel(existing_data, final_excel_name)
+                _, final_excel_path, _ = get_filenames(category, stock_code, stock_name)
+                create_final_excel(existing_data, final_excel_path)
                 append_summary_report(category, stock_code, "Success", f"Found {items_collected}")
             else:
                 status = "Stopped" if stop_requested else "Incomplete"
@@ -375,16 +394,25 @@ def process_stock_task(task_info):
         append_summary_report(category, stock_code, "Crash", str(e))
 
 def main():
+    if not os.path.exists(CONFIG_FILE):
+        print(f"❌ Error: Please create '{CONFIG_FILE}' first.")
+        return
+
+    # Create Directories
+    os.makedirs(TMP_DIR, exist_ok=True)
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
     config = load_config()
     max_workers = config.get('max_concurrent', 1)
     categories = config.get('categories', {})
 
     tasks = []
     for cat, stocks in categories.items():
+        if not stocks: continue
         for stock in stocks:
-            tasks.append({'category': cat, 'stock_code': stock, 'config': config})
+            tasks.append({'category': cat, 'stock_code': str(stock), 'config': config})
 
-    log_message(f"=== STARTING ({max_workers} threads) ===")
+    log_message(f"=== STARTING INVESTING.COM SCRAPER ({max_workers} threads) ===")
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = []
