@@ -1,0 +1,210 @@
+# AASTOCKS SCRAPER CONFIGURATION
+start_date: "2025-01-01"
+end_date: "2026-02-05"
+limit_items: 1000
+headless: false
+max_concurrent: 5
+
+# CATEGORIES & STOCK CODES
+# For HK Stocks: Use numbers (e.g., "700") -> Scraper uses HK URL
+# For US Stocks: Use Ticker Symbols (e.g., "TSLA", "NVDA") -> Scraper uses US URL
+categories:
+  Auto:
+    - "1810"  # Xiaomi
+    - "1211"  # BYD
+    - "2333"  # Great Wall
+    - "9868"  # Xpeng
+    - "2015"  # Li Auto (HK Code restored)
+    - "2238"  # GAC (HK Code restored)
+    - "9866"  # Nio
+    - "175"   # Geely
+    - "489"   # Dongfeng
+    - "881"   # Zhongsheng
+    - "TSLA"  # Tesla (US Ticker)
+
+  AI_Chips:
+    - "981"   # SMIC
+    - "763"   # ZTE
+    - "1347"  # Hua Hong
+    - "9988"  # Alibaba
+    - "NVDA"  # Nvidia (US Ticker)
+
+  5G:
+    - "6869"  # YOFC
+    - "2342"  # Comba
+    - "763"   # ZTE
+
+  Electronic:
+    - "285"   # BYD Electronic
+    - "2382"  # Sunny Optical
+    - "2018"  # AAC Tech (HK Code restored)
+    - "1415"  # Cowell
+    - "1810"  # Xiaomi
+    - "992"   # Lenovo
+    - "1729"  # HKE Holdings
+    - "788"   # China Tower
+
+  Robot:
+    - "763"   # ZTE
+    - "9880"  # UBTech
+    - "2432"  # Dobot
+    - "9660"  # Horizon Robot
+    - "2252"  # MicroPort Bot (HK Code restored)
+
+  IT_Ecommerce:
+    - "700"   # Tencent
+    - "9888"  # Baidu
+    - "9999"  # NetEase
+    - "9626"  # Bilibili
+    - "9618"  # JD
+    - "1024"  # Kuaishou
+    - "3690"  # Meituan
+    - "20"    # SenseTime (HK Code restored)
+
+  Computer_Software:
+    - "992"   # Lenovo
+    - "AAPL"  # Apple (US Ticker)
+
+  Bank:
+    - "2388"  # BOC HK
+    - "3968"  # CM Bank
+    - "1398"  # ICBC
+    - "5"     # HSBC (HK Code restored)
+    - "11"    # Hang Seng
+    - "388"   # HKEX
+    - "939"   # CCB
+    - "2888"  # Standard Chartered
+    - "3328"  # Bank of Comm
+    - "1658"  # Postal Savings (HK Code restored)
+    - "998"   # CITIC Bank
+    - "1288"  # ABC
+
+  Insurance:
+    - "828"   # Dynasty
+    - "2318"  # Ping An
+    - "2628"  # China Life
+    - "2601"  # CPIC
+    - "1299"  # AIA
+    - "945"   # Manulife
+    - "2378"  # Prudential
+    - "2328"  # PICC
+    - "1339"  # PICC Group
+
+  Utility:
+    - "2"     # CLP (HK Code restored)
+    - "3"     # HK & China Gas (HK Code restored)
+    - "6"     # Power Assets (HK Code restored)
+    - "836"   # China Res Power
+    - "2688"  # ENN Energy
+    - "135"   # Kunlun Energy
+    - "2638"  # HK Electric (HK Code restored)
+    - "1193"  # China Res Gas
+    - "2380"  # China Power
+    - "1038"  # CKI
+
+  Property:
+    - "908"   # Zhoutian
+    - "1109"  # China Res Land
+
+  Drug:
+    - "2269"  # WuXi Bio
+    - "276"   # Hengrui (Assuming HK/A-share numeric code logic)
+    - "9969"  # Innocare
+    - "1093"  # CSPC
+    - "1513"  # Livzon (HK Code restored)
+    - "3347"  # Tigermed
+    - "1177"  # Sino Biopharm
+    - "2359"  # WuXi AppTec
+    - "241"   # Ali Health
+    - "2268"  # WuXi Bio related
+
+  Healthcare:
+    - "1833"  # Ping An Good Doctor
+    - "241"   # Ali Health
+    - "6618"  # JD Health
+    - "6160"  # BeiGene
+    - "3692"  # Hansoh
+    - "9926"  # Akeso
+    - "1801"  # Innovent
+    - "2269"  # WuXi Bio
+    - "1177"  # Sino Biopharm
+    - "1093"  # CSPC
+
+  Education:
+    - "9901"  # New Oriental
+    - "3978"  # Koolearn
+    - "667"   # China East Edu
+    - "839"   # China Edu Group
+
+  Travel_Airline:
+    - "9961"  # Trip.com
+    - "780"   # Tongcheng
+    - "293"   # Cathay Pacific
+
+  Gambling:
+    - "27"    # Galaxy Ent
+    - "1928"  # Sands China
+    - "2282"  # MGM China
+    - "880"   # SJM
+    - "1128"  # Wynn Macau
+
+  Beverage:
+    - "291"   # China Resources Beer
+    - "168"   # Tsingtao
+    - "1876"  # Budweiser APAC
+    - "9633"  # Nongfu Spring
+    - "322"   # Tingyi
+    - "2319"  # Mengniu (HK Code restored)
+    - "220"   # Uni-President
+
+  Sport_Retails:
+    - "2331"  # Li Ning
+    - "2020"  # Anta
+
+  Entertainment:
+    - "9626"  # Bilibili
+    - "1698"  # Tencent Music (HK Code restored)
+    - "9899"  # Cloud Village
+    - "772"   # China Lit
+    - "1357"  # Meitu (HK Code restored)
+
+  Shipping:
+    - "2618"  # JD Logistics
+    - "1919"  # COSCO Shipping
+    - "1199"  # COSCO Ports
+    - "316"   # OOIL
+    - "2057"  # ZTO Express
+    - "1519"  # J&T Express
+    - "144"   # China Merchants Port
+    - "2588"  # BOC Aviation
+
+  Aluminum:
+    - "2068"  # Chinalco (HK Code restored)
+    - "2600"  # Chalco
+    - "358"   # Jiangxi Copper
+    - "486"   # Rusal
+    - "3993"  # CMOC
+    - "2899"  # Zijin
+    - "1208"  # MMG
+    - "1378"  # China Hongqiao
+    - "2099"  # China Gold Intl
+
+  Gold:
+    - "2899"  # Zijin
+    - "1818"  # Zhaojin
+    - "1787"  # Shandong Gold
+    - "3330"  # Lingbao
+    - "590"   # Luk Fook
+    - "1929"  # Chow Tai Fook
+    - "116"   # Chow Sang Sang
+    - "6181"  # Lao Pu Gold
+
+  Coal:
+    - "1088"  # China Shenhua
+    - "1171"  # Yanzhou Coal
+    - "1898"  # China Coal
+    - "3668"  # Yancoal Aus
+
+  Oil:
+    - "316"   # OOIL
+    - "386"   # Sinopec
