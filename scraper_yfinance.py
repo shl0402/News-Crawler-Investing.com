@@ -389,11 +389,12 @@ def process_stock_task(task_info):
                         if not pub_date: pub_date = current_date 
 
                         if content:
-                            log_message(f"      [{get_time_str()}] ✅ ({idx}/{len(links_data)}): Saved '{article_title[:40]}...' | URL: {url}")
+                            pub_date_str = pub_date.strftime('%Y-%m-%d %H:%M:%S')
+                            log_message(f"      [{get_time_str()}] ✅ ({idx}/{len(links_data)}): Saved '{article_title[:40]}...' | Date: {pub_date_str} | URL: {url}")
                             item = {
                                 'Category': category,
                                 'Stock Code': raw_stock_code,
-                                'Published Date': pub_date.strftime('%Y-%m-%d %H:%M:%S'),
+                                'Published Date': pub_date_str,
                                 'Title': article_title,
                                 'Content': content,
                                 'Link': url
