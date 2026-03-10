@@ -10,6 +10,7 @@ import signal
 import concurrent.futures
 import threading
 import urllib.parse
+import traceback
 from playwright.sync_api import sync_playwright
 
 # --- GLOBAL SETTINGS ---
@@ -152,13 +153,9 @@ def get_article_details(context, url, fallback_title=""):
     
     try:
         page = context.new_page()
-        # Allow scripts but block media to save bandwidth
         page.route("**/*.{png,jpg,jpeg,svg,woff,woff2,gif,ico,css}", lambda route: route.abort())
-        
-        # Increased wait time just in case it's a slow-loading React page
         page.goto(url, timeout=30000, wait_until="domcontentloaded")
         
-        # --- POPUP ASSASSIN ---
         try:
             consent_btn = page.locator('button[name="agree"], button.accept-all, button[value="agree"]').first
             if consent_btn.count() > 0 and consent_btn.is_visible(timeout=2000):
@@ -171,7 +168,6 @@ def get_article_details(context, url, fallback_title=""):
         except: 
             pass 
         
-        # 1. Get Date
         try:
             time_el = page.locator('time.byline-attr-meta-time, time').first
             if time_el.count() > 0:
@@ -179,14 +175,12 @@ def get_article_details(context, url, fallback_title=""):
                 published_date = parse_iso_date(date_str)
         except: pass
 
-        # 2. Get Title
         try:
             h1_el = page.locator('h1').first
             if h1_el.count() > 0:
                 title = h1_el.inner_text().strip()
         except: pass
 
-        # 3. Read More Button
         try:
             read_more_btn = page.locator('button[aria-label="Story Continues"], button.readmore-button').first
             if read_more_btn.count() > 0 and read_more_btn.is_visible():
@@ -194,7 +188,6 @@ def get_article_details(context, url, fallback_title=""):
                 time.sleep(0.5)
         except: pass
 
-        # 4. Extract Body Text
         try:
             body_container = page.locator('.bodyItems-wrapper, div[data-testid="article-body"], .caas-body').first
             if body_container.count() > 0:
@@ -206,224 +199,229 @@ def get_article_details(context, url, fallback_title=""):
         pass 
     finally:
         if page: 
-            # --- DEBUG FREEZE ---
             if not clean_text:
                 log_message(f"      ⚠️ DEBUG: Pausing for 15 seconds so you can inspect this failed page...")
-                time.sleep(15)  # <-- Freezes the tab open for 15 seconds before closing
-            
+                time.sleep(15)  
             try: page.close()
             except: pass
             
     return title, clean_text, published_date
 
 def process_stock_task(task_info):
-    global stop_requested
-    category = task_info['category']
-    stock_code = str(task_info['stock_code'])
-    config = task_info['config']
-    
-    limit = config.get('limit_items', 10000)
-    daily_limit = config.get('daily_limit', 10)
-    
-    if stop_requested: return
-
-    jsonl_filename, excel_path, excel_name = get_filenames(category, stock_code)
-    
-    if os.path.exists(excel_path):
-        log_message(f"[{get_time_str()}] ⏭️ {stock_code}: Excel exists. Skipping.")
-        append_summary_report(category, stock_code, "Skipped", "Excel Exists")
-        return
-
-    existing_data = load_existing_data(jsonl_filename)
-    processed_links = set(item['Link'] for item in existing_data)
-    items_collected = len(processed_links)
-
-    if items_collected >= limit:
-        log_message(f"[{get_time_str()}] ✅ {stock_code}: Done ({items_collected} items). Generating Excel...")
-        create_final_excel(existing_data, excel_path)
-        return
-
-    start_dt = datetime.strptime(config['start_date'], '%Y-%m-%d')
-    end_dt = datetime.strptime(config['end_date'], '%Y-%m-%d')
-    
-    loop_start_dt = end_dt
-    
-    resume_dates = config.get('resume_dates', {})
-    if category in resume_dates and stock_code in resume_dates[category]:
-        try:
-            loop_start_dt = datetime.strptime(str(resume_dates[category][stock_code]), '%Y-%m-%d')
-            log_message(f"[{get_time_str()}] ⏩ {stock_code}: Resuming at {loop_start_dt.date()} (from Config)")
-        except: pass
-
-    csv_resume_dt_str = get_resume_date_from_csv(stock_code)
-    if csv_resume_dt_str:
-        try:
-            csv_resume_dt = datetime.strptime(csv_resume_dt_str, '%Y-%m-%d')
-            if csv_resume_dt < loop_start_dt:
-                loop_start_dt = csv_resume_dt - timedelta(days=1)
-                log_message(f"[{get_time_str()}] ⏩ {stock_code}: Resuming at {loop_start_dt.date()} (from CSV Report)")
-        except: pass
-
-    if loop_start_dt < start_dt:
-        log_message(f"[{get_time_str()}] ✅ {stock_code}: Reached target start date ({start_dt.date()}).")
-        create_final_excel(existing_data, excel_path)
-        return
-        
-    date_range = pd.date_range(start=start_dt, end=loop_start_dt)
-    dates_to_search = [d for d in reversed(date_range)]
-
-    headless = config.get('headless', False) # Recommended to keep False if running Persistent Context
-
-    playwright_instance = None
-    context = None
-    google_page = None
-
-    def start_browser():
-        p = sync_playwright().start()
-        ua = random.choice(USER_AGENTS)
-        user_data_dir = os.path.join(BASE_DIR, "playwright_chrome_profile")
-        
-        # Use persistent context to save cookies/logins
-        ctx = p.chromium.launch_persistent_context(
-            user_data_dir,
-            headless=headless, 
-            viewport={'width': 1920, 'height': 1080},
-            user_agent=ua,
-            args=["--disable-blink-features=AutomationControlled"]
-        )
-        return p, ctx
-
     try:
-        playwright_instance, context = start_browser()
+        global stop_requested
+        category = task_info['category']
+        raw_stock_code = str(task_info['stock_code'])
+        config = task_info['config']
         
-        # Grab the default page opened by persistent context instead of making a new one
-        if len(context.pages) > 0:
-            google_page = context.pages[0]
-        else:
-            google_page = context.new_page()
-            
-        google_page.route("**/*.{png,jpg,jpeg,svg,woff,woff2,gif,ico}", lambda route: route.abort())
+        # Extracts just 'TSLA' from ''TSLA" OR "Tesla''
+        base_ticker = raw_stock_code.split('"')[0].replace("'", "").strip()
+        if not base_ticker:
+            base_ticker = raw_stock_code 
+        
+        limit = config.get('limit_items', 10000)
+        daily_limit = config.get('daily_limit', 10)
+        
+        if stop_requested: return
 
-        log_message(f"[{get_time_str()}] 🚀 {stock_code}: Started Google-YFinance Pipeline")
+        jsonl_filename, excel_path, excel_name = get_filenames(category, raw_stock_code)
+        
+        if os.path.exists(excel_path):
+            log_message(f"[{get_time_str()}] ⏭️ {base_ticker}: Excel exists. Skipping.")
+            append_summary_report(category, raw_stock_code, "Skipped", "Excel Exists")
+            return
 
-        for current_date in dates_to_search:
-            if stop_requested or items_collected >= limit: break
-            
-            date_log_str = current_date.strftime('%Y-%m-%d')
-            previous_date = current_date - timedelta(days=1)
-            date_query_max = f"{current_date.month}/{current_date.day}/{current_date.year}"
-            date_query_min = f"{previous_date.month}/{previous_date.day}/{previous_date.year}"
-            
-            query = f'site:finance.yahoo.com/news/ "{stock_code}"'
-            encoded_query = urllib.parse.quote(query)
-            google_url = f"https://www.google.com/search?q={encoded_query}&tbs=cdr:1,cd_min:{date_query_min},cd_max:{date_query_max}&hl=en&gl=us&lr=lang_en&start=0"
-            
-            log_message(f"[{get_time_str()}] 🔍 {stock_code}: Searching Google for {date_log_str} (Limit: {daily_limit}/day)...")
-            
-            try:
-                google_page.goto(google_url, timeout=30000, wait_until="domcontentloaded")
-                
-                # --- MANUAL CAPTCHA SOLVE LOOP ---
-                while "sorry" in google_page.title().lower() or google_page.locator('form[action="/errors/"]').count() > 0:
-                    log_message(f"[{get_time_str()}] 🚨 CAPTCHA DETECTED! Please manually solve it in the open browser window...")
-                    time.sleep(5) 
+        existing_data = load_existing_data(jsonl_filename)
+        processed_links = set(item['Link'] for item in existing_data)
+        items_collected = len(processed_links)
 
-                links_data = []
-                # Target links strictly inside the main search results (#search) to avoid the top header/Sign-in button
-                link_elements = google_page.locator('#search a[href*="finance.yahoo.com/news/"]').all()
-                
-                for el in link_elements:
-                    href = el.get_attribute('href')
-                    if not href: continue
-                    
-                    # Clean Google's redirect URL if present
-                    if "/url?q=" in href:
-                        href = href.split("/url?q=")[1].split("&")[0]
-                        href = urllib.parse.unquote(href)
-                        
-                    # --- STRICT URL VALIDATION ---
-                    # Ensure the URL strictly starts with Yahoo Finance (handles regular and regional like hk.finance)
-                    # This completely blocks Google Sign-In links and tracking pixels.
-                    if not re.match(r'^https:\/\/(?:[a-zA-Z0-9-]+\.)?finance\.yahoo\.com\/news\/', href):
-                        continue
-                        
-                    if href not in processed_links:
-                        h3 = el.locator('h3').first
-                        google_title = h3.inner_text().strip() if h3.count() > 0 else "Yahoo Finance Article"
-                        links_data.append((href, google_title))
-                        processed_links.add(href)
-                        
-                        if len(links_data) >= daily_limit: break
-
-                if not links_data:
-                    log_message(f"   [{get_time_str()}] ⏭️ {stock_code}: No new links found on {date_log_str}.")
-                    append_summary_report(category, stock_code, "No News", current_date=date_log_str)
-                    continue
-
-                log_message(f"   [{get_time_str()}] 📥 {stock_code}: Extracting {len(links_data)} articles for {date_log_str}...")
-                
-                batch_new_data = []
-                for idx, (url, feed_title) in enumerate(links_data, 1):
-                    if stop_requested or items_collected >= limit: break
-                    
-                    article_title, content, pub_date = get_article_details(context, url, feed_title)
-                    
-                    if not pub_date: pub_date = current_date 
-
-                    # --- VERBOSE LOGGING FOR FAILURES WITH URL/TITLE ---
-                    if content:
-                        log_message(f"      [{get_time_str()}] ✅ ({idx}/{len(links_data)}): Saved '{article_title[:40]}...' | URL: {url}")
-                        item = {
-                            'Category': category,
-                            'Stock Code': stock_code,
-                            'Published Date': pub_date.strftime('%Y-%m-%d %H:%M:%S'),
-                            'Title': article_title,
-                            'Content': content,
-                            'Link': url
-                        }
-                        batch_new_data.append(item)
-                        items_collected += 1
-                    else:
-                        log_message(f"      [{get_time_str()}] ❌ ({idx}/{len(links_data)}): Skipped '{feed_title[:40]}...' (Empty Content) | URL: {url}")
-                        
-                    time.sleep(random.uniform(0.5, 1.5))
-
-                if batch_new_data:
-                    append_to_jsonl(jsonl_filename, batch_new_data)
-                    existing_data.extend(batch_new_data)
-                    append_summary_report(category, stock_code, "In Progress", f"Found {items_collected}", current_date=date_log_str)
-                else:
-                    # If we found links but all of them were skipped (empty content)
-                    append_summary_report(category, stock_code, "Failed Extraction", f"0/{len(links_data)} parsed", current_date=date_log_str)
-
-
-            except Exception as e:
-                log_message(f"[{get_time_str()}] ⚠️ {stock_code}: Error on {date_log_str} - {str(e)[:50]}")
-                time.sleep(5)
-
-        completed_successfully = (items_collected >= limit) or (items_collected > 0) 
-
-        if completed_successfully:
+        if items_collected >= limit:
+            log_message(f"[{get_time_str()}] ✅ {base_ticker}: Done ({items_collected} items). Generating Excel...")
             create_final_excel(existing_data, excel_path)
-            append_summary_report(category, stock_code, "Success", f"Finished {items_collected}")
-        else:
-            status = "Stopped" if stop_requested else "Incomplete"
-            append_summary_report(category, stock_code, status, f"Finished {items_collected} (Partial)")
+            return
 
-        if context:
-            try: context.close()
+        try:
+            start_dt = datetime.strptime(config['start_date'], '%Y-%m-%d')
+            end_dt = datetime.strptime(config['end_date'], '%Y-%m-%d')
+        except ValueError as e:
+            log_message(f"❌ DATE FORMAT ERROR in config.yaml: {e}. Please use YYYY-MM-DD format (e.g. 2025-01-01).")
+            return
+        
+        loop_start_dt = end_dt
+        
+        # --- FIX: SAFE DICTIONARY FETCHING ---
+        resume_dates = config.get('resume_dates') or {}
+        cat_resume_dates = resume_dates.get(category) or {}
+        
+        if base_ticker in cat_resume_dates:
+            try:
+                loop_start_dt = datetime.strptime(str(cat_resume_dates[base_ticker]), '%Y-%m-%d')
+                log_message(f"[{get_time_str()}] ⏩ {base_ticker}: Resuming at {loop_start_dt.date()} (from Config)")
+            except Exception as e: 
+                log_message(f"[{get_time_str()}] ⚠️ Bad resume date format in config for {base_ticker}: {e}")
+
+        csv_resume_dt_str = get_resume_date_from_csv(raw_stock_code)
+        if csv_resume_dt_str:
+            try:
+                csv_resume_dt = datetime.strptime(csv_resume_dt_str, '%Y-%m-%d')
+                if csv_resume_dt < loop_start_dt:
+                    loop_start_dt = csv_resume_dt - timedelta(days=1)
+                    log_message(f"[{get_time_str()}] ⏩ {base_ticker}: Resuming at {loop_start_dt.date()} (from CSV Report)")
             except: pass
-        playwright_instance.stop()
+
+        if loop_start_dt < start_dt:
+            log_message(f"[{get_time_str()}] ✅ {base_ticker}: Reached target start date ({start_dt.date()}).")
+            create_final_excel(existing_data, excel_path)
+            return
+            
+        date_range = pd.date_range(start=start_dt, end=loop_start_dt)
+        dates_to_search = [d for d in reversed(date_range)]
+
+        headless = config.get('headless', False) 
+
+        playwright_instance = None
+        context = None
+        google_page = None
+
+        def start_browser():
+            p = sync_playwright().start()
+            ua = random.choice(USER_AGENTS)
+            user_data_dir = os.path.join(BASE_DIR, "playwright_chrome_profile")
+            
+            ctx = p.chromium.launch_persistent_context(
+                user_data_dir,
+                headless=headless, 
+                viewport={'width': 1920, 'height': 1080},
+                user_agent=ua,
+                args=["--disable-blink-features=AutomationControlled"]
+            )
+            return p, ctx
+
+        try:
+            playwright_instance, context = start_browser()
+            
+            if len(context.pages) > 0:
+                google_page = context.pages[0]
+            else:
+                google_page = context.new_page()
+                
+            google_page.route("**/*.{png,jpg,jpeg,svg,woff,woff2,gif,ico}", lambda route: route.abort())
+
+            log_message(f"[{get_time_str()}] 🚀 {base_ticker}: Started Google-YFinance Pipeline")
+
+            for current_date in dates_to_search:
+                if stop_requested or items_collected >= limit: break
+                
+                date_log_str = current_date.strftime('%Y-%m-%d')
+                previous_date = current_date - timedelta(days=1)
+                date_query_max = f"{current_date.month}/{current_date.day}/{current_date.year}"
+                date_query_min = f"{previous_date.month}/{previous_date.day}/{previous_date.year}"
+                
+                query = f'site:finance.yahoo.com/news/ "{raw_stock_code}"'
+                encoded_query = urllib.parse.quote(query)
+                google_url = f"https://www.google.com/search?q={encoded_query}&tbs=cdr:1,cd_min:{date_query_min},cd_max:{date_query_max}&hl=en&gl=us&lr=lang_en&start=0"
+                
+                log_message(f"[{get_time_str()}] 🔍 {base_ticker}: Searching Google for {date_log_str} (Limit: {daily_limit}/day)...")
+                
+                try:
+                    google_page.goto(google_url, timeout=30000, wait_until="domcontentloaded")
+                    
+                    while "sorry" in google_page.title().lower() or google_page.locator('form[action="/errors/"]').count() > 0:
+                        log_message(f"[{get_time_str()}] 🚨 CAPTCHA DETECTED! Please manually solve it in the open browser window...")
+                        time.sleep(5) 
+
+                    links_data = []
+                    link_elements = google_page.locator('#search a[href*="finance.yahoo.com/news/"]').all()
+                    
+                    for el in link_elements:
+                        href = el.get_attribute('href')
+                        if not href: continue
+                        
+                        if "/url?q=" in href:
+                            href = href.split("/url?q=")[1].split("&")[0]
+                            href = urllib.parse.unquote(href)
+                            
+                        if not re.match(r'^https:\/\/finance\.yahoo\.com\/news\/', href):
+                            continue
+                            
+                        if href not in processed_links:
+                            h3 = el.locator('h3').first
+                            google_title = h3.inner_text().strip() if h3.count() > 0 else "Yahoo Finance Article"
+                            links_data.append((href, google_title))
+                            processed_links.add(href)
+                            
+                            if len(links_data) >= daily_limit: break
+
+                    if not links_data:
+                        log_message(f"   [{get_time_str()}] ⏭️ {base_ticker}: No new links found on {date_log_str}.")
+                        append_summary_report(category, raw_stock_code, "No News", current_date=date_log_str)
+                        continue
+
+                    log_message(f"   [{get_time_str()}] 📥 {base_ticker}: Extracting {len(links_data)} articles for {date_log_str}...")
+                    
+                    batch_new_data = []
+                    for idx, (url, feed_title) in enumerate(links_data, 1):
+                        if stop_requested or items_collected >= limit: break
+                        
+                        article_title, content, pub_date = get_article_details(context, url, feed_title)
+                        
+                        if not pub_date: pub_date = current_date 
+
+                        if content:
+                            log_message(f"      [{get_time_str()}] ✅ ({idx}/{len(links_data)}): Saved '{article_title[:40]}...' | URL: {url}")
+                            item = {
+                                'Category': category,
+                                'Stock Code': raw_stock_code,
+                                'Published Date': pub_date.strftime('%Y-%m-%d %H:%M:%S'),
+                                'Title': article_title,
+                                'Content': content,
+                                'Link': url
+                            }
+                            batch_new_data.append(item)
+                            items_collected += 1
+                        else:
+                            log_message(f"      [{get_time_str()}] ❌ ({idx}/{len(links_data)}): Skipped '{feed_title[:40]}...' (Empty Content) | URL: {url}")
+                            
+                        time.sleep(random.uniform(0.5, 1.5))
+
+                    if batch_new_data:
+                        append_to_jsonl(jsonl_filename, batch_new_data)
+                        existing_data.extend(batch_new_data)
+                        append_summary_report(category, raw_stock_code, "In Progress", f"Found {items_collected}", current_date=date_log_str)
+                    else:
+                        append_summary_report(category, raw_stock_code, "Failed Extraction", f"0/{len(links_data)} parsed", current_date=date_log_str)
+
+                except Exception as e:
+                    log_message(f"[{get_time_str()}] ⚠️ {base_ticker}: Error on {date_log_str} - {str(e)[:50]}")
+                    time.sleep(5)
+
+            completed_successfully = (items_collected >= limit) or (items_collected > 0) 
+
+            if completed_successfully:
+                create_final_excel(existing_data, excel_path)
+                append_summary_report(category, raw_stock_code, "Success", f"Finished {items_collected}")
+            else:
+                status = "Stopped" if stop_requested else "Incomplete"
+                append_summary_report(category, raw_stock_code, status, f"Finished {items_collected} (Partial)")
+
+            if context:
+                try: context.close()
+                except: pass
+            playwright_instance.stop()
+
+        except Exception as e:
+            log_message(f"[{get_time_str()}] ❌ Crash {base_ticker}: {e}")
+            append_summary_report(category, raw_stock_code, "Crash", str(e))
+            if context:
+                try: context.close()
+                except: pass
+            if playwright_instance:
+                try: playwright_instance.stop()
+                except: pass
 
     except Exception as e:
-        log_message(f"[{get_time_str()}] ❌ Crash {stock_code}: {e}")
-        append_summary_report(category, stock_code, "Crash", str(e))
-        if context:
-            try: context.close()
-            except: pass
-        if playwright_instance:
-            try: playwright_instance.stop()
-            except: pass
+        error_trace = traceback.format_exc()
+        log_message(f"❌ FATAL THREAD CRASH for {task_info.get('stock_code', 'Unknown')}: {e}\n{error_trace}")
 
 def main():
     if not os.path.exists(CONFIG_FILE):
@@ -435,13 +433,23 @@ def main():
 
     config = load_config()
     max_workers = config.get('max_concurrent', 1)
-    categories = config.get('categories', {})
+    
+    # --- FIX: SAFE DICTIONARY FETCHING FOR CATEGORIES ---
+    categories = config.get('categories') or {}
 
     tasks = []
+    if not categories:
+        print("⚠️ WARNING: No valid categories found in your YAML config. Please uncomment or add stocks.")
+        return
+
     for cat, stocks in categories.items():
         if not stocks: continue
         for stock in stocks:
             tasks.append({'category': cat, 'stock_code': str(stock), 'config': config})
+
+    if not tasks:
+        print("⚠️ WARNING: Task list is empty. Ensure your stocks are properly formatted in the YAML.")
+        return
 
     log_message(f"=== STARTING YAHOO FINANCE GOOGLE PIPELINE ({max_workers} threads) ===")
     
@@ -454,8 +462,10 @@ def main():
         try:
             for future in concurrent.futures.as_completed(futures):
                 if stop_requested: executor.shutdown(wait=False, cancel_futures=True)
-                try: future.result()
-                except: pass
+                try: 
+                    future.result()
+                except Exception as e: 
+                    log_message(f"❌ Unhandled Thread Error: {e}")
         except KeyboardInterrupt:
             signal_handler(None, None)
 
