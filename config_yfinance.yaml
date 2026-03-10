@@ -2,8 +2,8 @@
 start_date: "2025-01-01"
 end_date: "2026-03-11"
 limit_items: 10000
-daily_limit: 10  # <-- NEW: Maximum number of news articles to scrape per day
-headless: true
+daily_limit: 3  # <-- NEW: Maximum number of news articles to scrape per day
+headless: false
 
 # CONCURRENCY SETTINGS
 # Google is strict about bots. Keep this at 1 or 2.
