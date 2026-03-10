@@ -326,9 +326,30 @@ def process_stock_task(task_info):
                 try:
                     google_page.goto(google_url, timeout=30000, wait_until="domcontentloaded")
                     
-                    while "sorry" in google_page.title().lower() or google_page.locator('form[action="/errors/"]').count() > 0:
-                        log_message(f"[{get_time_str()}] 🚨 CAPTCHA DETECTED! Please manually solve it in the open browser window...")
-                        time.sleep(5) 
+                    # Add an initial anti-detection pause
+                    time.sleep(random.uniform(1.5, 3.5))
+
+                    while True:
+                        title_lower = google_page.title().lower()
+                        # Google captchas usually have "sorry" or "robot" or use the /errors/ form
+                        is_captcha = ("sorry" in title_lower or 
+                                      "robot" in title_lower or 
+                                      "captcha" in title_lower or 
+                                      google_page.locator('form[action="/errors/"]').count() > 0 or
+                                      google_page.locator('#captcha-form, div.g-recaptcha, iframe[src*="recaptcha"]').count() > 0)
+                        
+                        if is_captcha:
+                            log_message(f"[{get_time_str()}] 🛑 CAPTCHA DETECTED! Please manually solve it in the open browser window...")
+                            try:
+                                # Wait for the search results to actually appear (indicates successful solve)
+                                google_page.wait_for_selector('#search', timeout=300000) # 5 minutes to solve
+                                log_message(f"[{get_time_str()}] ✅ CAPTCHA Solved! Resuming...")
+                                time.sleep(2)
+                            except:
+                                log_message(f"[{get_time_str()}] ❌ Timed out waiting for CAPTCHA solution.")
+                                break
+                        else:
+                            break
 
                     links_data = []
                     link_elements = google_page.locator('#search a[href*="finance.yahoo.com/news/"]').all()
