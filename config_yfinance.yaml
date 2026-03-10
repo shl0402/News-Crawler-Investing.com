@@ -1,0 +1,224 @@
+# SCRAPER CONFIGURATION
+start_date: "2025-01-01"
+end_date: "2026-03-11"
+limit_items: 10000
+daily_limit: 10  # <-- NEW: Maximum number of news articles to scrape per day
+headless: true
+
+# CONCURRENCY SETTINGS
+# Google is strict about bots. Keep this at 1 or 2.
+max_concurrent: 1
+
+# RESUME DATES (Optional)
+# Specify a starting date (YYYY-MM-DD) for specific stocks.
+# The scraper goes backward in time. If the CSV report shows a date further back, 
+# it will automatically use the CSV date instead to prevent re-scraping.
+# RESUME DATES (Optional)
+# Specify a starting date (YYYY-MM-DD) for specific stocks.
+resume_dates:
+  # EV:
+  #   "TSLA": "2025-12-31"
+  # AI_Chips:
+  #   "NVDA": "2025-12-31"
+
+# CATEGORIES & STOCK CODES
+categories:
+  Auto:
+    - '1810.HK" OR "Xiaomi'
+    - '1211.HK" OR "BYD'
+    - '2333.HK" OR "Great Wall'
+    - '9868.HK" OR "Xpeng'
+    - '2015.HK" OR "Li Auto'
+    - '2238.HK" OR "GAC'
+    - '9866.HK" OR "Nio'
+    - '0175.HK" OR "Geely'
+    - '0489.HK" OR "Dongfeng'
+    - '0881.HK" OR "Zhongsheng'
+    - 'TSLA" OR "Tesla'
+
+  AI_Chips:
+    - '0981.HK" OR "SMIC'
+    - '0763.HK" OR "ZTE'
+    - '1347.HK" OR "Hua Hong'
+    - '9988.HK" OR "Alibaba'
+    - 'NVDA" OR "Nvidia'
+
+  5G:
+    - '6869.HK" OR "YOFC'
+    - '2342.HK" OR "Comba'
+    - '0763.HK" OR "ZTE'
+
+  Electronic:
+    - '0285.HK" OR "BYD Electronic'
+    - '2382.HK" OR "Sunny Optical'
+    - '2018.HK" OR "AAC Tech'
+    - '1415.HK" OR "Cowell'
+    - '1810.HK" OR "Xiaomi'
+    - '0992.HK" OR "Lenovo'
+    - '1729.HK" OR "HKE Holdings'
+    - '0788.HK" OR "China Tower'
+
+  Robot:
+    - '0763.HK" OR "ZTE'
+    - '9880.HK" OR "UBTech'
+    - '2432.HK" OR "Dobot'
+    - '9660.HK" OR "Horizon Robot'
+    - '2252.HK" OR "MicroPort Bot'
+
+  IT_Ecommerce:
+    - '0700.HK" OR "Tencent'
+    - '9888.HK" OR "Baidu'
+    - '9999.HK" OR "NetEase'
+    - '9626.HK" OR "Bilibili'
+    - '9618.HK" OR "JD'
+    - '1024.HK" OR "Kuaishou'
+    - '3690.HK" OR "Meituan'
+    - '0020.HK" OR "SenseTime'
+
+  Computer_Software:
+    - '0992.HK" OR "Lenovo'
+    - 'AAPL" OR "Apple'
+
+  Bank:
+    - '2388.HK" OR "BOC HK'
+    - '3968.HK" OR "CM Bank'
+    - '1398.HK" OR "ICBC'
+    - '0005.HK" OR "HSBC'
+    - '0011.HK" OR "Hang Seng'
+    - '0388.HK" OR "HKEX'
+    - '0939.HK" OR "CCB'
+    - '2888.HK" OR "Standard Chartered'
+    - '3328.HK" OR "Bank of Comm'
+    - '1658.HK" OR "Postal Savings'
+    - '0998.HK" OR "CITIC Bank'
+    - '1288.HK" OR "ABC'
+
+  Insurance:
+    - '0828.HK" OR "Dynasty'
+    - '2318.HK" OR "Ping An'
+    - '2628.HK" OR "China Life'
+    - '2601.HK" OR "CPIC'
+    - '1299.HK" OR "AIA'
+    - '0945.HK" OR "Manulife'
+    - '2378.HK" OR "Prudential'
+    - '2328.HK" OR "PICC'
+    - '1339.HK" OR "PICC Group'
+
+  Utility:
+    - '0002.HK" OR "CLP'
+    - '0003.HK" OR "HK & China Gas'
+    - '0006.HK" OR "Power Assets'
+    - '0836.HK" OR "China Res Power'
+    - '2688.HK" OR "ENN Energy'
+    - '0135.HK" OR "Kunlun Energy'
+    - '2638.HK" OR "HK Electric'
+    - '1193.HK" OR "China Res Gas'
+    - '2380.HK" OR "China Power'
+    - '1038.HK" OR "CKI'
+
+  Property:
+    - '0908.HK" OR "Zhoutian'
+    - '1109.HK" OR "China Res Land'
+
+  Drug:
+    - '2269.HK" OR "WuXi Bio'
+    - '0276.HK" OR "Hengrui'
+    - '9969.HK" OR "Innocare'
+    - '1093.HK" OR "CSPC'
+    - '1513.HK" OR "Livzon'
+    - '3347.HK" OR "Tigermed'
+    - '1177.HK" OR "Sino Biopharm'
+    - '2359.HK" OR "WuXi AppTec'
+    - '0241.HK" OR "Ali Health'
+    - '2268.HK" OR "WuXi Bio'
+
+  Healthcare:
+    - '1833.HK" OR "Ping An Good Doctor'
+    - '0241.HK" OR "Ali Health'
+    - '6618.HK" OR "JD Health'
+    - '6160.HK" OR "BeiGene'
+    - '3692.HK" OR "Hansoh'
+    - '9926.HK" OR "Akeso'
+    - '1801.HK" OR "Innovent'
+    - '2269.HK" OR "WuXi Bio'
+    - '1177.HK" OR "Sino Biopharm'
+    - '1093.HK" OR "CSPC'
+
+  Education:
+    - '9901.HK" OR "New Oriental'
+    - '3978.HK" OR "Koolearn'
+    - '0667.HK" OR "China East Edu'
+    - '0839.HK" OR "China Edu Group'
+
+  Travel_Airline:
+    - '9961.HK" OR "Trip.com'
+    - '0780.HK" OR "Tongcheng'
+    - '0293.HK" OR "Cathay Pacific'
+
+  Gambling:
+    - '0027.HK" OR "Galaxy Ent'
+    - '1928.HK" OR "Sands China'
+    - '2282.HK" OR "MGM China'
+    - '0880.HK" OR "SJM'
+    - '1128.HK" OR "Wynn Macau'
+
+  Beverage:
+    - '0291.HK" OR "China Resources Beer'
+    - '0168.HK" OR "Tsingtao'
+    - '1876.HK" OR "Budweiser APAC'
+    - '9633.HK" OR "Nongfu Spring'
+    - '0322.HK" OR "Tingyi'
+    - '2319.HK" OR "Mengniu'
+    - '0220.HK" OR "Uni-President'
+
+  Sport_Retails:
+    - '2331.HK" OR "Li Ning'
+    - '2020.HK" OR "Anta'
+
+  Entertainment:
+    - '9626.HK" OR "Bilibili'
+    - '1698.HK" OR "Tencent Music'
+    - '9899.HK" OR "Cloud Village'
+    - '0772.HK" OR "China Lit'
+    - '1357.HK" OR "Meitu'
+
+  Shipping:
+    - '2618.HK" OR "JD Logistics'
+    - '1919.HK" OR "COSCO Shipping'
+    - '1199.HK" OR "COSCO Ports'
+    - '0316.HK" OR "OOIL'
+    - '2057.HK" OR "ZTO Express'
+    - '1519.HK" OR "J&T Express'
+    - '0144.HK" OR "China Merchants Port'
+    - '2588.HK" OR "BOC Aviation'
+
+  Aluminum:
+    - '2068.HK" OR "Chinalco'
+    - '2600.HK" OR "Chalco'
+    - '0358.HK" OR "Jiangxi Copper'
+    - '0486.HK" OR "Rusal'
+    - '3993.HK" OR "CMOC'
+    - '2899.HK" OR "Zijin'
+    - '1208.HK" OR "MMG'
+    - '1378.HK" OR "China Hongqiao'
+    - '2099.HK" OR "China Gold Intl'
+
+  Gold:
+    - '2899.HK" OR "Zijin'
+    - '1818.HK" OR "Zhaojin'
+    - '1787.HK" OR "Shandong Gold'
+    - '3330.HK" OR "Lingbao'
+    - '0590.HK" OR "Luk Fook'
+    - '1929.HK" OR "Chow Tai Fook'
+    - '0116.HK" OR "Chow Sang Sang'
+    - '6181.HK" OR "Lao Pu Gold'
+
+  Coal:
+    - '1088.HK" OR "China Shenhua'
+    - '1171.HK" OR "Yanzhou Coal'
+    - '1898.HK" OR "China Coal'
+    - '3668.HK" OR "Yancoal Aus'
+
+  Oil:
+    - '0316.HK" OR "OOIL'
+    - '0386.HK" OR "Sinopec'
