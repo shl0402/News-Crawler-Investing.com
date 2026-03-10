@@ -346,10 +346,14 @@ def process_stock_task(task_info):
                                 log_message(f"[{get_time_str()}] ✅ CAPTCHA Solved! Resuming...")
                                 time.sleep(2)
                             except:
-                                log_message(f"[{get_time_str()}] ❌ Timed out waiting for CAPTCHA solution.")
+                                log_message(f"[{get_time_str()}] ❌ FATAL: Timed out waiting for CAPTCHA solution. Stopping script to prevent skipping dates.")
+                                stop_requested = True
                                 break
                         else:
                             break
+
+                    if stop_requested:
+                        break
 
                     links_data = []
                     link_elements = google_page.locator('#search a[href*="finance.yahoo.com/news/"]').all()
